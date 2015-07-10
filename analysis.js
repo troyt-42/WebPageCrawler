@@ -1,9 +1,9 @@
 var cheerio = require('cheerio');
 var fs = require('fs');
 var Q = require('q');
+var redis = require('redis');
 
 function readFolder(){
-
   var deferred = Q.defer();
   fs.readdir('pages', function(err, files){
     if (err) deferred.reject(new Error(err));
@@ -24,6 +24,8 @@ function readFile(file){
 
 var filesPromise = readFolder();
 var generalData = '';
+var redisClient = redis.createClient();
+
 filesPromise.then(function(data){
   var promises = [];
   for(var i = 0; i < data.length; i ++){
@@ -33,7 +35,7 @@ filesPromise.then(function(data){
 }).then(function(){
   var $ = cheerio.load(generalData);
   var result = fs.createWriteStream("result.txt");
-  result.write("Job                                                                                         Company \n");
+  result.write("Job                                                                                                     Company \n");
 
   $('.jobTitleCol.fnt4').each(function(index, element){
       var node = $(element);
@@ -44,13 +46,16 @@ filesPromise.then(function(data){
       console.log(company);
 
       var space = '';
-      for(var p = 0; p < "                                                                                            ".length - job.length; p++){
+      for(var p = 0; p < "                                                                                                        ".length - job.length; p++){
         space += " ";
       }
+      redisClient.sadd('jobs', job);
+      redisClient.hset('jobs:'+job, "company", company);
+      console.log('jobs:'+job);
       console.log(space + "|");
       result.write(job + space + company + "\n");
   });
   result.end(function(){
-    console.log('Done; Please Check the Result in result.txt');
+    console.log('Done; Please Check the Result using result.js');
   });
 });
